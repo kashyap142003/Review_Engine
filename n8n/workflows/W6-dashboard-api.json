@@ -1,0 +1,233 @@
+﻿{
+  "name": "W6 - Dashboard API (Sequential + Respond)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "data",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e44d32f4-7e77-4df3-a19c-8b5e6727bbd9",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "webhookId": "dashboard-api-data"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Track",
+          "mode": "list",
+          "cachedResultName": "Track",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/123/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "fc42b03f-42e7-4952-bb58-37c1ff76b0cf",
+      "name": "Read Track",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        420,
+        300
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Reviews",
+          "mode": "list",
+          "cachedResultName": "Reviews",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/123/edit#gid=1"
+        },
+        "options": {}
+      },
+      "id": "986f78f8-3e4b-4682-bb37-142e88a38520",
+      "name": "Read Reviews",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        640,
+        300
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Issues",
+          "mode": "list",
+          "cachedResultName": "Issues",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/123/edit#gid=2"
+        },
+        "options": {}
+      },
+      "id": "83db37df-44a6-4b8c-b9b0-9e66cbce0f0d",
+      "name": "Read Issues",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        860,
+        300
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Activity",
+          "mode": "list",
+          "cachedResultName": "Activity",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/123/edit#gid=3"
+        },
+        "options": {}
+      },
+      "id": "f58f5049-74d7-4638-b7ba-ea3e1173663a",
+      "name": "Read Activity",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1080,
+        300
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const clean = (items) => items.map(i => i.json).filter(j => Object.keys(j).length > 0);\n\nreturn {\n  track: clean($items(\"Read Track\")),\n  reviews: clean($items(\"Read Reviews\")),\n  issues: clean($items(\"Read Issues\")),\n  activity: clean($items(\"Read Activity\"))\n};"
+      },
+      "id": "b304ffb6-e2bb-4ad1-ad81-193c72b26090",
+      "name": "Format JSON Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        300
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Read Track",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Track": {
+      "main": [
+        [
+          {
+            "node": "Read Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Reviews": {
+      "main": [
+        [
+          {
+            "node": "Read Issues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Issues": {
+      "main": [
+        [
+          {
+            "node": "Read Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Activity": {
+      "main": [
+        [
+          {
+            "node": "Format JSON Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format JSON Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f781bbca-94f3-42e1-88f5-4148b598b0f4",
+  "id": "c138b1d9-e935-430c-ab23-1082531d0dbb",
+  "meta": {
+    "instanceId": "e331464c-b51c-43bd-9b88-1a5119cb4000"
+  },
+  "tags": []
+}

@@ -1,0 +1,125 @@
+{
+  "name": "W1 - Conversational Email Outreach (Service Completed)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-15min",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [ 100, 300 ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Track", "mode": "name" },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "pending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "read-pending",
+      "name": "Find Pending Customers",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 320, 300 ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "subject": "=Quick question about your {{ $json.service || 'service' }} today",
+        "message": "=<p>Hi {{ $json.customer_name }},</p><p>Thank you for choosing us for your <strong>{{ $json.service || 'service' }}</strong> today!</p><p>How did everything go? Simply hit <strong>reply</strong> to this email and let me know—I read every single response personally to ensure you had a 5-star experience.</p><p>Best regards,<br/><strong>Store Manager</strong></p>",
+        "sendTo": "={{ $json.email }}"
+      },
+      "id": "send-outreach-email",
+      "name": "Send via Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [ 540, 300 ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Track", "mode": "name" },
+        "columnToMatchOn": "email",
+        "valueToMatchOn": "={{ $json.email }}",
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "status", "value": "contacted" },
+            { "name": "contacted_at", "value": "={{ $now.toISO() }}" }
+          ]
+        }
+      },
+      "id": "update-track-contacted",
+      "name": "Update Status to Contacted",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 760, 300 ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Activity", "mode": "name" },
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "id", "value": "={{ $execution.id }}" },
+            { "name": "event", "value": "email_sent" },
+            { "name": "detail", "value": "=Conversational outreach sent to {{ $json.customer_name }}" },
+            { "name": "ts", "value": "={{ $now.toISO() }}" }
+          ]
+        }
+      },
+      "id": "log-activity-sent",
+      "name": "Log to Activity Feed",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 980, 300 ]
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [ [ { "node": "Find Pending Customers", "type": "main", "index": 0 } ] ]
+    },
+    "Find Pending Customers": {
+      "main": [ [ { "node": "Send via Gmail", "type": "main", "index": 0 } ] ]
+    },
+    "Send via Gmail": {
+      "main": [ [ { "node": "Update Status to Contacted", "type": "main", "index": 0 } ] ]
+    },
+    "Update Status to Contacted": {
+      "main": [ [ { "node": "Log to Activity Feed", "type": "main", "index": 0 } ] ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

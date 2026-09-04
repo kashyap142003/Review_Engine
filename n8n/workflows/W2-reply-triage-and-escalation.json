@@ -1,0 +1,206 @@
+{
+  "name": "W2 - Reply Triage, Google Review Invitation & Problem Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "q": "is:unread category:primary subject:\"Quick question about your\""
+        }
+      },
+      "id": "gmail-trigger",
+      "name": "Gmail Trigger (New Replies)",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [ 100, 400 ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = ($json.text || $json.snippet || '').toLowerCase();\n\nconst fromHeader = $json.payload?.headers?.find(h => h.name.toLowerCase() === 'from')?.value || 'Customer <customer@example.com>';\n\nlet customer_email = '';\nlet customer_name = '';\n\nconst emailMatch = fromHeader.match(/<(.+)>/);\nif (emailMatch) {\n  customer_email = emailMatch[1];\n  customer_name = fromHeader.replace(/<.+>/, '').trim().replace(/\"/g, '');\n} else {\n  customer_email = fromHeader;\n  customer_name = 'Valued Customer';\n}\n\nconst negativeKeywords = ['bad', 'poor', 'defect', 'broke', 'broken', 'issue', 'problem', 'unhappy', 'worst', 'terrible', 'horrible', 'delay', 'late', 'rude', 'complain', 'refund', 'scam', 'damage'];\n\nconst isProblem = negativeKeywords.some(kw => text.includes(kw));\n\nreturn {\n  customer_email,\n  customer_name,\n  reply_text: $json.text || $json.snippet || '',\n  is_problem: isProblem,\n  sentiment: isProblem ? 'negative' : 'positive'\n};"
+      },
+      "id": "sentiment-analyzer",
+      "name": "Analyze Feedback Sentiment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ 320, 400 ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.is_problem }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-problem",
+      "name": "Problem Detected?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [ 540, 400 ]
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "hours"
+      },
+      "id": "wait-positive",
+      "name": "Wait 1 Hour",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [ 760, 260 ],
+      "webhookId": "wait-positive"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "subject": "=Thank you for your feedback! Would you mind sharing on Google?",
+        "message": "=<p>Hi {{ $json.customer_name }},</p><p>Thank you so much for your kind words! Our team works hard to provide the best service possible.</p><p>Would you mind taking 30 seconds to leave us a quick review on Google? It really helps our local business grow:</p><p><a href=\"https://g.page/r/YOUR_GOOGLE_MAPS_SHORTLINK/review\" style=\"display:inline-block;padding:12px 24px;background:#10B981;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;\">⭐ Leave a Google Review</a></p><p>Thank you again!</p>",
+        "sendTo": "={{ $json.customer_email }}"
+      },
+      "id": "send-google-invite",
+      "name": "Send Google Review Invite via Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [ 980, 260 ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Track", "mode": "name" },
+        "columnToMatchOn": "email",
+        "valueToMatchOn": "={{ $json.customer_email }}",
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "status", "value": "reviewed" },
+            { "name": "review_sent_at", "value": "={{ $now.toISO() }}" }
+          ]
+        }
+      },
+      "id": "update-track-reviewed",
+      "name": "Update Track (Invite Sent)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 1200, 260 ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Issues", "mode": "name" },
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "id", "value": "=issue_{{ $execution.id }}" },
+            { "name": "customer_name", "value": "={{ $json.customer_name }}" },
+            { "name": "customer_email", "value": "={{ $json.customer_email }}" },
+            { "name": "summary", "value": "={{ $json.reply_text }}" },
+            { "name": "severity", "value": "high" },
+            { "name": "status", "value": "open" },
+            { "name": "created_at", "value": "={{ $now.toISO() }}" }
+          ]
+        }
+      },
+      "id": "create-issue-row",
+      "name": "Log Row in Issues Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 760, 520 ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "subject": "=🚨 URGENT: Customer Issue Flagged ({{ $json.customer_name }})",
+        "message": "=<h2 style=\"color:#EF4444;\">⚠️ Customer Issue Detected</h2><p><strong>Customer:</strong> {{ $json.customer_name }} ({{ $json.customer_email }})</p><p><strong>Feedback:</strong> \"{{ $json.reply_text }}\"</p><p>Please call the customer immediately to resolve this before they leave a public negative review!</p>",
+        "sendTo": "owner@yourbusiness.com"
+      },
+      "id": "alert-store-owner",
+      "name": "Send Urgent Alert to Owner via Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [ 980, 520 ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "subject": "=Re: Quick question about your service today",
+        "message": "=<p>Hi {{ $json.customer_name }},</p><p>I'm so sorry to hear you had a negative experience. I've personally alerted the owner, and they will reach out to you immediately to make this right.</p><p>Thank you for bringing this to our attention.</p>",
+        "sendTo": "={{ $json.customer_email }}"
+      },
+      "id": "auto-reply-customer",
+      "name": "Auto-Reply Customer via Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [ 1200, 520 ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Gmail Trigger (New Replies)": {
+      "main": [ [ { "node": "Analyze Feedback Sentiment", "type": "main", "index": 0 } ] ]
+    },
+    "Analyze Feedback Sentiment": {
+      "main": [ [ { "node": "Problem Detected?", "type": "main", "index": 0 } ] ]
+    },
+    "Problem Detected?": {
+      "main": [
+        [ { "node": "Log Row in Issues Sheet", "type": "main", "index": 0 } ],
+        [ { "node": "Wait 1 Hour", "type": "main", "index": 0 } ]
+      ]
+    },
+    "Wait 1 Hour": {
+      "main": [ [ { "node": "Send Google Review Invite via Gmail", "type": "main", "index": 0 } ] ]
+    },
+    "Send Google Review Invite via Gmail": {
+      "main": [ [ { "node": "Update Track (Invite Sent)", "type": "main", "index": 0 } ] ]
+    },
+    "Log Row in Issues Sheet": {
+      "main": [ [ { "node": "Send Urgent Alert to Owner via Gmail", "type": "main", "index": 0 } ] ]
+    },
+    "Send Urgent Alert to Owner via Gmail": {
+      "main": [ [ { "node": "Auto-Reply Customer via Gmail", "type": "main", "index": 0 } ] ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

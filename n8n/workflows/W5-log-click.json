@@ -1,0 +1,112 @@
+{
+  "name": "W5 - Log Review-Link Click",
+  "nodes": [
+    {
+      "id": "click-webhook",
+      "name": "Review Link Click",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1120, 0],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "log-click",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "validate-click",
+      "name": "Validate & Check Auth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-880, 0],
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nconst expected = '__N8N_WEBHOOK_SIGNING_SECRET__';\nconst provided = body.secret || body.token || '';\nif (expected !== provided) {\n  throw new Error('Unauthorized click log');\n}\nif (!body.review_link_id) {\n  throw new Error('review_link_id is required');\n}\nreturn [{\n  json: {\n    review_link_id: body.review_link_id,\n    ts: body.ts || new Date().toISOString(),\n    event_id: `click-${body.review_link_id}-${body.ts}`\n  }\n}];"
+      }
+    },
+    {
+      "id": "read-track",
+      "name": "Read Track",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [-640, 0],
+      "parameters": {
+        "operation": "getAll",
+        "documentId": "__GOOGLE_SHEET_ID__",
+        "sheetName": "Track",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "__N8N_CREDENTIAL_ID__", "name": "__CONFIGURE_IN_N8N__" }
+      }
+    },
+    {
+      "id": "compute-count",
+      "name": "Compute New Count",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-400, 0],
+      "parameters": {
+        "jsCode": "const payload = $('Validate & Check Auth').first().json;\nconst row = $input.all()\n  .map((item) => item.json)\n  .find((r) => r.review_link_id === payload.review_link_id);\nconst current = row ? (Number(row.review_click_count) || 0) : 0;\nreturn [{\n  json: {\n    review_link_id: payload.review_link_id,\n    ts: payload.ts,\n    event_id: payload.event_id,\n    review_click_count: current + 1,\n    customer_name: row ? row.customer_name : '',\n    business_name: row ? row.business_name : ''\n  }\n}];"
+      }
+    },
+    {
+      "id": "update-click-count",
+      "name": "Increment Click Count",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [-160, 0],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": "__GOOGLE_SHEET_ID__",
+        "sheetName": "Track",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "review_click_count": "={{ $json.review_click_count }}",
+            "last_clicked_at": "={{ $json.ts }}",
+            "updated_at": "={{ $json.ts }}"
+          }
+        },
+        "options": { "eventAction": "update", "keyRow": "review_link_id" }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "__N8N_CREDENTIAL_ID__", "name": "__CONFIGURE_IN_N8N__" }
+      }
+    },
+    {
+      "id": "append-activity",
+      "name": "Append Activity",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [80, 0],
+      "parameters": {
+        "operation": "append",
+        "documentId": "__GOOGLE_SHEET_ID__",
+        "sheetName": "Activity",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.event_id }}",
+            "ts": "={{ $json.ts }}",
+            "event": "click",
+            "track_id": "={{ $json.review_link_id }}",
+            "detail": "=Review link clicked ({{ $json.review_click_count }} total)"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "__N8N_CREDENTIAL_ID__", "name": "__CONFIGURE_IN_N8N__" }
+      }
+    }
+  ],
+  "connections": {
+    "Review Link Click": { "main": [[{ "node": "Validate & Check Auth", "type": "main", "index": 0 }]] },
+    "Validate & Check Auth": { "main": [[{ "node": "Read Track", "type": "main", "index": 0 }]] },
+    "Read Track": { "main": [[{ "node": "Compute New Count", "type": "main", "index": 0 }]] },
+    "Compute New Count": { "main": [[{ "node": "Increment Click Count", "type": "main", "index": 0 }]] },
+    "Increment Click Count": { "main": [[{ "node": "Append Activity", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

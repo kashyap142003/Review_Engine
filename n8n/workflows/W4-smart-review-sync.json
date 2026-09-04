@@ -1,0 +1,181 @@
+{
+  "name": "W4 - Smart Google Review Sync via SerpAPI",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [ { "field": "cronExpression", "expression": "0 7 * * *" } ] }
+      },
+      "id": "trigger-schedule",
+      "name": "Every Morning at 7AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [ 0, 300 ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sync-reviews",
+        "options": {}
+      },
+      "id": "trigger-webhook",
+      "name": "Manual Sync Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [ 0, 500 ],
+      "webhookId": "sync-reviews-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Reviews", "mode": "name" },
+        "filtersUI": {},
+        "options": {
+          "returnAllMatches": false,
+          "limit": 1
+        }
+      },
+      "id": "check-reviews",
+      "name": "Check if Reviews Exist",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 220, 400 ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ Object.keys($json).length > 0 }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-empty",
+      "name": "Has Existing Reviews?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [ 440, 400 ]
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "engine", "value": "google_maps_reviews" },
+            { "name": "place_id", "value": "__GOOGLE_PLACE_ID__" },
+            { "name": "api_key", "value": "__SERPAPI_KEY__" },
+            { "name": "sort_by", "value": "newestFirst" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-daily",
+      "name": "Daily Sync (1 Page)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [ 700, 300 ]
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "engine", "value": "google_maps_reviews" },
+            { "name": "place_id", "value": "__GOOGLE_PLACE_ID__" },
+            { "name": "api_key", "value": "__SERPAPI_KEY__" },
+            { "name": "sort_by", "value": "newestFirst" }
+          ]
+        },
+        "options": {
+          "paginate": true,
+          "paginationMode": "updateParameter",
+          "paginationParameterType": "query",
+          "paginationParameterName": "next_page_token",
+          "paginationParameterValue": "={{ $response.body.serpapi_pagination?.next_page_token }}",
+          "paginationCompleteWhen": "other",
+          "paginationCompleteCondition": "={{ !$response.body.serpapi_pagination?.next_page_token }}",
+          "limitPagesFetched": true,
+          "maxPages": 3
+        }
+      },
+      "id": "http-backfill",
+      "name": "Backfill (Max 3 Pages - Credit Protected)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [ 700, 500 ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "reviews",
+        "options": {}
+      },
+      "id": "split-reviews",
+      "name": "Split Reviews",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [ 950, 400 ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Reviews", "mode": "name" },
+        "columnToMatchOn": "id",
+        "valueToMatchOn": "={{ $json.review_id }}",
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "id", "value": "={{ $json.review_id }}" },
+            { "name": "author", "value": "={{ $json.user.name }}" },
+            { "name": "rating", "value": "={{ $json.rating }}" },
+            { "name": "text", "value": "={{ $json.snippet }}" },
+            { "name": "url", "value": "={{ $json.link }}" },
+            { "name": "captured_at", "value": "={{ $json.iso_date || $json.date }}" },
+            { "name": "source", "value": "gbp_sync" }
+          ]
+        }
+      },
+      "id": "save-sheets",
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 1200, 400 ]
+    }
+  ],
+  "connections": {
+    "Every Morning at 7AM": {
+      "main": [ [ { "node": "Check if Reviews Exist", "type": "main", "index": 0 } ] ]
+    },
+    "Manual Sync Webhook": {
+      "main": [ [ { "node": "Check if Reviews Exist", "type": "main", "index": 0 } ] ]
+    },
+    "Check if Reviews Exist": {
+      "main": [ [ { "node": "Has Existing Reviews?", "type": "main", "index": 0 } ] ]
+    },
+    "Has Existing Reviews?": {
+      "main": [
+        [ { "node": "Daily Sync (1 Page)", "type": "main", "index": 0 } ],
+        [ { "node": "Backfill (Max 3 Pages - Credit Protected)", "type": "main", "index": 0 } ]
+      ]
+    },
+    "Daily Sync (1 Page)": {
+      "main": [ [ { "node": "Split Reviews", "type": "main", "index": 0 } ] ]
+    },
+    "Backfill (Max 3 Pages - Credit Protected)": {
+      "main": [ [ { "node": "Split Reviews", "type": "main", "index": 0 } ] ]
+    },
+    "Split Reviews": {
+      "main": [ [ { "node": "Save to Google Sheets", "type": "main", "index": 0 } ] ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

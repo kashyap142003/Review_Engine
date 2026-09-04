@@ -1,0 +1,100 @@
+{
+  "name": "W8 - Add Customer / Lead Ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "add-customer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-add-customer",
+      "name": "Add Customer Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [ 100, 300 ],
+      "webhookId": "add-customer-api"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Track", "mode": "name" },
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "id", "value": "=cust_{{ $now.toMillis() }}" },
+            { "name": "customer_name", "value": "={{ $json.body.customer_name }}" },
+            { "name": "email", "value": "={{ $json.body.email }}" },
+            { "name": "phone", "value": "={{ $json.body.phone || '' }}" },
+            { "name": "service", "value": "={{ $json.body.service || 'General Service' }}" },
+            { "name": "completion_date", "value": "={{ $json.body.completion_date || $now.toFormat('yyyy-MM-dd') }}" },
+            { "name": "channel", "value": "={{ $json.body.channel || 'email' }}" },
+            { "name": "status", "value": "pending" },
+            { "name": "review_click_count", "value": "0" },
+            { "name": "created_at", "value": "={{ $now.toISO() }}" },
+            { "name": "updated_at", "value": "={{ $now.toISO() }}" }
+          ]
+        }
+      },
+      "id": "append-to-track",
+      "name": "Add Row to Track Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 340, 300 ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Activity", "mode": "name" },
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "id", "value": "={{ $execution.id }}" },
+            { "name": "event", "value": "email_sent" },
+            { "name": "detail", "value": "=New completed service logged for {{ $('Add Customer Webhook').item.json.body.customer_name }}" },
+            { "name": "ts", "value": "={{ $now.toISO() }}" }
+          ]
+        }
+      },
+      "id": "log-activity-add",
+      "name": "Log to Activity Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 560, 300 ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": true,\n  \"message\": \"Customer added to Track sheet successfully!\"\n}",
+        "options": {}
+      },
+      "id": "respond-ok",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [ 780, 300 ]
+    }
+  ],
+  "connections": {
+    "Add Customer Webhook": {
+      "main": [ [ { "node": "Add Row to Track Sheet", "type": "main", "index": 0 } ] ]
+    },
+    "Add Row to Track Sheet": {
+      "main": [ [ { "node": "Log to Activity Sheet", "type": "main", "index": 0 } ] ]
+    },
+    "Log Activity Sheet": {
+      "main": [ [ { "node": "Respond to Webhook", "type": "main", "index": 0 } ] ]
+    },
+    "Log to Activity Sheet": {
+      "main": [ [ { "node": "Respond to Webhook", "type": "main", "index": 0 } ] ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

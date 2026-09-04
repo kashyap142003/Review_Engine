@@ -1,0 +1,120 @@
+{
+  "name": "W3 - Reminder for No Click",
+  "nodes": [
+    {
+      "id": "daily-trigger",
+      "name": "Every Day at 10:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [-960, 0],
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 10 * * *" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "read-track",
+      "name": "Read Track",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [-720, 0],
+      "parameters": {
+        "operation": "getAll",
+        "documentId": "__GOOGLE_SHEET_ID__",
+        "sheetName": "Track",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "__N8N_CREDENTIAL_ID__", "name": "__CONFIGURE_IN_N8N__" }
+      }
+    },
+    {
+      "id": "filter-eligible",
+      "name": "Filter Eligible for Reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-480, 0],
+      "parameters": {
+        "jsCode": "const reminderDays = Number(__REMINDER_DAYS__ || 3);\nconst now = Date.now();\nconst DAY = 86400000;\nreturn $input.all()\n  .map((item) => item.json)\n  .filter((row) => {\n    if (row.status === 'contacted' || row.status === 'replied') {\n      const sentAt = Date.parse(row.review_sent_at || row.feedback_sent_at);\n      const clicked = Number(row.review_click_count || 0);\n      const reminded = row.reminder_sent_at !== '' && row.reminder_sent_at !== undefined;\n      return !Number.isNaN(sentAt) && (now - sentAt) >= reminderDays * DAY && clicked === 0 && !reminded;\n    }\n    return false;\n  })\n  .map((row) => ({ json: { ...row, reminder_sent_at: new Date().toISOString() } }));"
+      }
+    },
+    {
+      "id": "send-reminder",
+      "name": "Send Reminder Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [-240, 0],
+      "parameters": {
+        "operation": "send",
+        "to": "={{ $json.email }}",
+        "subject": "=A quick reminder about your review",
+        "body": "=Hi {{ $json.customer_name }},\\n\\nWe hope you enjoyed your {{ $json.service }}. If you have a moment, we would be grateful for your genuine feedback via Google:\\n\\nReview link: {{ $json.review_url }}\\n\\nThank you,\\n{{ $json.business_name || 'The Team' }}",
+        "options": {}
+      },
+      "credentials": {
+        "gmailOAuth2": { "id": "__N8N_CREDENTIAL_ID__", "name": "__CONFIGURE_IN_N8N__" }
+      }
+    },
+    {
+      "id": "mark-reminded",
+      "name": "Mark Reminded",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [0, 0],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": "__GOOGLE_SHEET_ID__",
+        "sheetName": "Track",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "reminded",
+            "reminder_sent_at": "={{ $json.reminder_sent_at }}",
+            "updated_at": "={{ $json.reminder_sent_at }}"
+          }
+        },
+        "options": { "eventAction": "update", "keyRow": "review_link_id" }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "__N8N_CREDENTIAL_ID__", "name": "__CONFIGURE_IN_N8N__" }
+      }
+    },
+    {
+      "id": "append-activity",
+      "name": "Append Activity",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [240, 0],
+      "parameters": {
+        "operation": "append",
+        "documentId": "__GOOGLE_SHEET_ID__",
+        "sheetName": "Activity",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "=remind-{{ $json.review_link_id }}",
+            "ts": "={{ $json.reminder_sent_at }}",
+            "event": "reminder_sent",
+            "track_id": "={{ $json.review_link_id }}",
+            "detail": "=Reminder sent to {{ $json.customer_name }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "__N8N_CREDENTIAL_ID__", "name": "__CONFIGURE_IN_N8N__" }
+      }
+    }
+  ],
+  "connections": {
+    "Every Day at 10:00": { "main": [[{ "node": "Read Track", "type": "main", "index": 0 }]] },
+    "Read Track": { "main": [[{ "node": "Filter Eligible for Reminder", "type": "main", "index": 0 }]] },
+    "Filter Eligible for Reminder": { "main": [[{ "node": "Send Reminder Email", "type": "main", "index": 0 }]] },
+    "Send Reminder Email": { "main": [[{ "node": "Mark Reminded", "type": "main", "index": 0 }]] },
+    "Mark Reminded": { "main": [[{ "node": "Append Activity", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

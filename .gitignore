@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+web/node_modules/
+
+# Build output
+dist/
+web/dist/
+
+# Environment files (never commit secrets)
+.env
+.env.local
+.env.*.local
+web/.env.local
+supabase/.env
+
+# Editor / OS
+.idea/
+.vscode/
+*.suo
+Thumbs.db
+.DS_Store

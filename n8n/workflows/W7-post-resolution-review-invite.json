@@ -1,0 +1,112 @@
+{
+  "name": "W7 - Post-Resolution Review Invite",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "resolve-issue",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-resolve",
+      "name": "Resolve Issue Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [ 100, 300 ],
+      "webhookId": "resolve-issue-api"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Issues", "mode": "name" },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "id",
+              "lookupValue": "={{ $json.body.issue_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "find-issue",
+      "name": "Find Issue Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 320, 300 ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Issues", "mode": "name" },
+        "columnToMatchOn": "id",
+        "valueToMatchOn": "={{ $json.id }}",
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "status", "value": "resolved" },
+            { "name": "resolved_at", "value": "={{ $now.toISO() }}" }
+          ]
+        }
+      },
+      "id": "update-issue-resolved",
+      "name": "Mark Issue Resolved",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 540, 300 ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "subject": "=Checking in on your service / Resolution",
+        "message": "=<p>Hi {{ $json.customer_name }},</p><p>Thank you for giving us the chance to make things right. I hope we were able to resolve your concerns to your satisfaction.</p><p>If you feel we handled it well, we would incredibly appreciate a quick Google review. It means a lot to our team to know we turned a bad situation around.</p><p><a href=\"https://g.page/r/YOUR_GOOGLE_MAPS_SHORTLINK/review\" style=\"display:inline-block;padding:12px 24px;background:#10B981;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;\">⭐ Leave a Google Review</a></p><p>Thank you again for your patience.</p>",
+        "sendTo": "={{ $json.customer_email }}"
+      },
+      "id": "send-resolution-email",
+      "name": "Send Follow-up Email via Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [ 760, 300 ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [ 980, 300 ]
+    }
+  ],
+  "connections": {
+    "Resolve Issue Webhook": {
+      "main": [ [ { "node": "Find Issue Row", "type": "main", "index": 0 } ] ]
+    },
+    "Find Issue Row": {
+      "main": [ [ { "node": "Mark Issue Resolved", "type": "main", "index": 0 } ] ]
+    },
+    "Mark Issue Resolved": {
+      "main": [ [ { "node": "Send Follow-up Email via Gmail", "type": "main", "index": 0 } ] ]
+    },
+    "Send Follow-up Email via Gmail": {
+      "main": [ [ { "node": "Respond to Webhook", "type": "main", "index": 0 } ] ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

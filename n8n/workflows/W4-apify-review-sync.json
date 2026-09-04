@@ -1,0 +1,213 @@
+{
+  "name": "W4 - Async Google Maps Review Scraper & AI Triage",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "trigger-schedule",
+      "name": "Every 30 Minutes Background Worker",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [ 0, 300 ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sync-reviews",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "trigger-webhook",
+      "name": "Manual Async Sync Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [ 0, 500 ],
+      "webhookId": "sync-reviews-async"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": true,\n  \"status\": \"scraping_started\",\n  \"message\": \"Background review sync initiated. New reviews will appear automatically.\"\n}",
+        "options": {}
+      },
+      "id": "respond-instantly",
+      "name": "Respond to Dashboard Instantly",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [ 220, 500 ]
+    },
+    {
+      "parameters": {
+        "resource": "actor",
+        "operation": "run",
+        "actorId": "compass/google-maps-reviews-scraper",
+        "inputSource": "json",
+        "inputJson": "={\n  \"startUrls\": [\n    {\n      \"url\": \"__GOOGLE_MAPS_URL__\"\n    }\n  ],\n  \"maxReviews\": 15,\n  \"reviewsSort\": \"newest\",\n  \"scrapeReviewerName\": true,\n  \"scrapeReviewerId\": true,\n  \"scrapeReviewUrl\": true,\n  \"scrapeResponseFromOwner\": false,\n  \"scrapeReviewImages\": false,\n  \"oneReviewPerRow\": true,\n  \"language\": \"en\"\n}"
+      },
+      "id": "run-apify-actor",
+      "name": "Run Apify Scraper (Background)",
+      "type": "n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [ 300, 300 ],
+      "credentials": {
+        "apifyApi": {
+          "id": "YOUR_APIFY_CREDENTIAL_ID",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "dataset",
+        "operation": "getItems",
+        "datasetId": "={{ $json.defaultDatasetId }}",
+        "options": {}
+      },
+      "id": "get-dataset-items",
+      "name": "Get Dataset Items",
+      "type": "n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [ 500, 300 ],
+      "credentials": {
+        "apifyApi": {
+          "id": "YOUR_APIFY_CREDENTIAL_ID",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "__GOOGLE_SHEET_ID__",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Reviews",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "get-existing-reviews",
+      "name": "Get Existing Review IDs",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 700, 300 ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Grab all existing review IDs already stored in Google Sheets\nconst existingItems = $items(\"Get Existing Review IDs\") || [];\nconst existingIds = new Set(existingItems.map(i => i.json.id || i.json.reviewId).filter(Boolean));\n\n// 2. Grab freshly scraped reviews from Apify\nconst scrapedItems = $items(\"Get Dataset Items\") || [];\n\n// 3. Find only GENUINELY NEW reviews\nconst newReviews = [];\nconst seenInBatch = new Set();\n\nfor (const item of scrapedItems) {\n  const r = item.json;\n  const id = r.reviewId || r.id || r.review_id;\n  if (id && !existingIds.has(id) && !seenInBatch.has(id)) {\n    seenInBatch.add(id);\n    \n    // AI Sentiment / Problem Flagging logic on newly detected reviews\n    const rating = Number(r.stars || r.rating || 5);\n    const text = (r.text || '').toLowerCase();\n    \n    const negativeKeywords = ['bad', 'poor', 'defect', 'broke', 'broken', 'issue', 'problem', 'unhappy', 'worst', 'terrible', 'horrible', 'delay', 'late', 'rude', 'complain', 'refund', 'scam', 'damage', 'disappointed', 'mess'];\n    const hasNegativeKeyword = negativeKeywords.some(kw => text.includes(kw));\n    \n    const isNegativeReview = rating <= 3 || hasNegativeKeyword;\n    \n    newReviews.push({\n      id: id,\n      author: r.name || r.author || 'Anonymous',\n      rating: rating,\n      text: r.text || '',\n      url: r.reviewUrl || r.url || '',\n      captured_at: r.publishedAtDate || new Date().toISOString(),\n      sentiment: isNegativeReview ? 'negative' : 'positive',\n      source: 'apify_async'\n    });\n  }\n}\n\nreturn newReviews.map(review => ({ json: review }));"
+      },
+      "id": "deduplicate-and-analyze",
+      "name": "Filter Only New Reviews + AI Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ 900, 300 ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "__GOOGLE_SHEET_ID__",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Reviews",
+          "mode": "name"
+        },
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "id", "value": "={{ $json.id }}" },
+            { "name": "author", "value": "={{ $json.author }}" },
+            { "name": "rating", "value": "={{ $json.rating }}" },
+            { "name": "text", "value": "={{ $json.text }}" },
+            { "name": "url", "value": "={{ $json.url }}" },
+            { "name": "captured_at", "value": "={{ $json.captured_at }}" },
+            { "name": "source", "value": "apify_async" }
+          ]
+        }
+      },
+      "id": "save-new-reviews",
+      "name": "Append Only New Reviews to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 1120, 300 ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "__GOOGLE_SHEET_ID__",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Activity",
+          "mode": "name"
+        },
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "id", "value": "=act_{{ $now.toMillis() }}" },
+            { "name": "event", "value": "review_captured" },
+            { "name": "detail", "value": "=Captured {{ $json.rating }}⭐ Google Review from {{ $json.author }}" },
+            { "name": "ts", "value": "={{ $now.toISO() }}" }
+          ]
+        }
+      },
+      "id": "log-activity-review",
+      "name": "Log to Activity Feed",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 1340, 300 ]
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes Background Worker": {
+      "main": [ [ { "node": "Run Apify Scraper (Background)", "type": "main", "index": 0 } ] ]
+    },
+    "Manual Async Sync Webhook": {
+      "main": [ 
+        [ 
+          { "node": "Respond to Dashboard Instantly", "type": "main", "index": 0 },
+          { "node": "Run Apify Scraper (Background)", "type": "main", "index": 0 }
+        ] 
+      ]
+    },
+    "Run Apify Scraper (Background)": {
+      "main": [ [ { "node": "Get Dataset Items", "type": "main", "index": 0 } ] ]
+    },
+    "Get Dataset Items": {
+      "main": [ [ { "node": "Get Existing Review IDs", "type": "main", "index": 0 } ] ]
+    },
+    "Get Existing Review IDs": {
+      "main": [ [ { "node": "Filter Only New Reviews + AI Analysis", "type": "main", "index": 0 } ] ]
+    },
+    "Filter Only New Reviews + AI Analysis": {
+      "main": [ [ { "node": "Append Only New Reviews to Sheet", "type": "main", "index": 0 } ] ]
+    },
+    "Append Only New Reviews to Sheet": {
+      "main": [ [ { "node": "Log to Activity Feed", "type": "main", "index": 0 } ] ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

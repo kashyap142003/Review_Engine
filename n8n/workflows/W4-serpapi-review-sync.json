@@ -1,0 +1,81 @@
+{
+  "name": "W4 - Google Review Sync via SerpAPI",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [ { "field": "cronExpression", "expression": "0 7 * * *" } ] }
+      },
+      "id": "s1",
+      "name": "Every Morning at 7AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [ 200, 300 ]
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "engine", "value": "google_maps_reviews" },
+            { "name": "place_id", "value": "__GOOGLE_PLACE_ID__" },
+            { "name": "api_key", "value": "__SERPAPI_KEY__" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "s2",
+      "name": "Fetch Reviews from Google Maps",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [ 400, 300 ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "reviews",
+        "options": {}
+      },
+      "id": "s3",
+      "name": "Item Lists (Split Reviews)",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [ 600, 300 ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "value": "__GOOGLE_SHEET_ID__", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Reviews", "mode": "name" },
+        "columnToMatchOn": "url",
+        "valueToMatchOn": "={{ $json.link }}",
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "id", "value": "={{ $json.review_id }}" },
+            { "name": "author", "value": "={{ $json.user.name }}" },
+            { "name": "rating", "value": "={{ $json.rating }}" },
+            { "name": "text", "value": "={{ $json.snippet }}" },
+            { "name": "url", "value": "={{ $json.link }}" },
+            { "name": "captured_at", "value": "={{ $json.date }}" },
+            { "name": "source", "value": "gbp_sync" }
+          ]
+        }
+      },
+      "id": "s4",
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 800, 300 ]
+    }
+  ],
+  "connections": {
+    "Every Morning at 7AM": { "main": [ [ { "node": "Fetch Reviews from Google Maps", "type": "main", "index": 0 } ] ] },
+    "Fetch Reviews from Google Maps": { "main": [ [ { "node": "Item Lists (Split Reviews)", "type": "main", "index": 0 } ] ] },
+    "Item Lists (Split Reviews)": { "main": [ [ { "node": "Save to Google Sheets", "type": "main", "index": 0 } ] ] }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
