@@ -20,6 +20,7 @@ async function n8nRequest(path, options = {}) {
     method: options.method ?? 'GET',
     headers: {
       'Content-Type': 'application/json',
+      'Bypass-Tunnel-Reminder': 'true',
       'x-api-token': API_TOKEN,
       'x-session-token': getStoredToken(),
     },
