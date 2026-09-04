@@ -21,6 +21,7 @@ async function n8nRequest(path, options = {}) {
     headers: {
       'Content-Type': 'application/json',
       'Bypass-Tunnel-Reminder': 'true',
+      'ngrok-skip-browser-warning': 'true',
       'x-api-token': API_TOKEN,
       'x-session-token': getStoredToken(),
     },
