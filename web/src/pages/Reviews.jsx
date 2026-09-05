@@ -5,6 +5,7 @@ import { useSheetData } from '../lib/useSheetData';
 import StatCard from '../components/StatCard';
 import GlassCard from '../components/GlassCard';
 import DataTable from '../components/DataTable';
+import AiReplyDraft from '../components/AiReplyDraft';
 import Page from '../components/Page';
 import PageSkeleton, { ErrorBanner } from '../components/States';
 import { staggerContainer, staggerItem } from '../lib/motion';
@@ -141,16 +142,9 @@ export default function Reviews() {
                     </p>
                   )}
                 </div>
-                {review.url && (
-                  <a
-                    href={review.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-4 inline-flex items-center gap-1 text-[length:var(--text-xs)] font-semibold text-[color:var(--accent)] hover:underline"
-                  >
-                    View on Google →
-                  </a>
-                )}
+
+                {/* AI Reply Draft Assistant & Google Link */}
+                <AiReplyDraft review={review} />
               </GlassCard>
             </motion.div>
           ))}
@@ -167,6 +161,15 @@ export default function Reviews() {
             { key: 'rating', label: 'Rating', render: (row) => <StarRating rating={row.rating} /> },
             { key: 'text', label: 'Review' },
             { key: 'captured_at', label: 'Captured' },
+            { 
+              key: 'actions', 
+              label: 'AI Reply', 
+              render: (row) => (
+                <div className="min-w-[200px]">
+                  <AiReplyDraft review={row} />
+                </div>
+              ) 
+            },
           ]}
           rows={stats.recent}
           emptyMessage="No reviews yet."

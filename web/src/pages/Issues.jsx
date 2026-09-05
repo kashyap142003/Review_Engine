@@ -14,6 +14,7 @@ import { useSheetData } from '../lib/useSheetData';
 import { resolveIssue } from '../lib/api';
 import DataTable from '../components/DataTable';
 import GlassCard from '../components/GlassCard';
+import AiReplyDraft from '../components/AiReplyDraft';
 import Page from '../components/Page';
 import PageSkeleton, { ErrorBanner } from '../components/States';
 import clsx from 'clsx';
@@ -237,17 +238,11 @@ export default function Issues() {
               },
               {
                 key: 'actions',
-                label: 'Action',
+                label: 'AI Reply Assistant',
                 render: (row) => (
-                  <a
-                    href={row.url || 'https://maps.google.com'}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[12px] font-semibold text-amber-400 hover:bg-amber-500/20 transition-all"
-                  >
-                    <span>View & Reply on Google</span>
-                    <ExternalLink size={12} />
-                  </a>
+                  <div className="min-w-[240px]">
+                    <AiReplyDraft review={row} />
+                  </div>
                 ),
               },
             ]}
