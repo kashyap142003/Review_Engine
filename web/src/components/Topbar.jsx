@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { CalendarDays, ChevronDown, Bell, CheckCircle2, Radio, RefreshCw } from 'lucide-react';
+import { CalendarDays, ChevronDown, CheckCircle2, Radio, RefreshCw } from 'lucide-react';
+import NotificationDropdown from './NotificationDropdown';
 import { EASE } from '../lib/motion';
 
 export default function Topbar({ title, subtitle, actions, onRefresh, refreshing }) {
@@ -69,15 +70,10 @@ export default function Topbar({ title, subtitle, actions, onRefresh, refreshing
           />
         </div>
 
-        {/* Notifications Icon Button */}
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative hidden tablet:flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-secondary)] shadow-sm transition-colors hover:bg-[color:var(--state-hover-overlay)] hover:text-[color:var(--text-primary)]"
-        >
-          <Bell size={17} strokeWidth={2} />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-[#EF4444]" />
-        </button>
+        {/* Dynamic Notifications Dropdown */}
+        <div className="hidden tablet:block">
+          <NotificationDropdown />
+        </div>
 
         {actions}
       </div>
