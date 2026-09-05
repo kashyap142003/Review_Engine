@@ -8,13 +8,14 @@ import {
   ExternalLink, 
   ShieldAlert, 
   MessageSquare,
-  Filter
+  Filter,
+  Sparkles
 } from 'lucide-react';
 import { useSheetData } from '../lib/useSheetData';
 import { resolveIssue } from '../lib/api';
 import DataTable from '../components/DataTable';
 import GlassCard from '../components/GlassCard';
-import AiReplyDraft from '../components/AiReplyDraft';
+import AiReplyModal from '../components/AiReplyModal';
 import Page from '../components/Page';
 import PageSkeleton, { ErrorBanner } from '../components/States';
 import clsx from 'clsx';
@@ -86,6 +87,7 @@ export default function Issues() {
   const { rows: issueRows, loading: issuesLoading, error: issuesError, reload: reloadIssues } = useSheetData('issues');
   const { rows: reviewRows, loading: reviewsLoading, error: reviewsError, reload: reloadReviews } = useSheetData('reviews');
   const [filterType, setFilterType] = useState('all'); // 'all' | 'private' | 'google'
+  const [selectedReviewForAi, setSelectedReviewForAi] = useState(null);
 
   const loading = issuesLoading || reviewsLoading;
   const error = issuesError || reviewsError;
@@ -238,10 +240,29 @@ export default function Issues() {
               },
               {
                 key: 'actions',
-                label: 'AI Reply Assistant',
+                label: 'Actions',
                 render: (row) => (
-                  <div className="min-w-[240px]">
-                    <AiReplyDraft review={row} />
+                  <div className="flex items-center gap-2 whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedReviewForAi(row)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 px-3 py-1.5 text-[12px] font-semibold text-[#A78BFA] transition-all hover:bg-[#8B5CF6]/20 active:scale-95"
+                    >
+                      <Sparkles size={13} className="text-[#A78BFA]" />
+                      <span>Draft Reply</span>
+                    </button>
+
+                    {row.url && (
+                      <a
+                        href={row.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[12px] font-semibold text-amber-400 hover:bg-amber-500/20 transition-all"
+                      >
+                        <span>Google</span>
+                        <ExternalLink size={12} />
+                      </a>
+                    )}
                   </div>
                 ),
               },
@@ -326,6 +347,13 @@ export default function Issues() {
           emptyMessage="No resolved issues yet."
         />
       </section>
+
+      {/* AI Reply Modal Dialog */}
+      <AiReplyModal
+        review={selectedReviewForAi}
+        isOpen={!!selectedReviewForAi}
+        onClose={() => setSelectedReviewForAi(null)}
+      />
     </Page>
   );
 }

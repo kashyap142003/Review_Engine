@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Star, MessageSquareQuote, LayoutGrid, Table as TableIcon } from 'lucide-react';
+import { Star, MessageSquareQuote, LayoutGrid, Table as TableIcon, Sparkles, ExternalLink } from 'lucide-react';
 import { useSheetData } from '../lib/useSheetData';
 import StatCard from '../components/StatCard';
 import GlassCard from '../components/GlassCard';
 import DataTable from '../components/DataTable';
 import AiReplyDraft from '../components/AiReplyDraft';
+import AiReplyModal from '../components/AiReplyModal';
 import Page from '../components/Page';
 import PageSkeleton, { ErrorBanner } from '../components/States';
 import { staggerContainer, staggerItem } from '../lib/motion';
@@ -28,6 +29,7 @@ function StarRating({ rating, size = 16 }) {
 export default function Reviews() {
   const { rows, loading, error, reload } = useSheetData('reviews');
   const [view, setView] = useState('cards');
+  const [selectedReviewForAi, setSelectedReviewForAi] = useState(null);
 
   const stats = useMemo(() => {
     const ratings = rows.map((r) => Number(r.rating)).filter((n) => Number.isFinite(n) && n > 0);
@@ -163,10 +165,29 @@ export default function Reviews() {
             { key: 'captured_at', label: 'Captured' },
             { 
               key: 'actions', 
-              label: 'AI Reply', 
+              label: 'Actions', 
               render: (row) => (
-                <div className="min-w-[200px]">
-                  <AiReplyDraft review={row} />
+                <div className="flex items-center gap-2 whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedReviewForAi(row)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 px-3 py-1.5 text-[12px] font-semibold text-[#A78BFA] transition-all hover:bg-[#8B5CF6]/20 active:scale-95"
+                  >
+                    <Sparkles size={13} className="text-[#A78BFA]" />
+                    <span>Draft Reply</span>
+                  </button>
+
+                  {row.url && (
+                    <a
+                      href={row.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[12px] font-semibold text-amber-400 hover:bg-amber-500/20 transition-all"
+                    >
+                      <span>Google</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
                 </div>
               ) 
             },
@@ -175,6 +196,13 @@ export default function Reviews() {
           emptyMessage="No reviews yet."
         />
       )}
+
+      {/* AI Reply Modal Dialog */}
+      <AiReplyModal
+        review={selectedReviewForAi}
+        isOpen={!!selectedReviewForAi}
+        onClose={() => setSelectedReviewForAi(null)}
+      />
     </Page>
   );
 }
