@@ -54,6 +54,7 @@ flowchart TD
 | **W6** | **Live Dashboard API** | Webhook (`GET /data`) | Aggregates all 4 sheet tabs (`Track`, `Issues`, `Reviews`, `Activity`) into a single fast payload for the web dashboard. |
 | **W7** | **Post-Resolution Review Invite** | Webhook (`POST /resolve-issue`) | Updates `Issues` status to `resolved` and automatically emails the customer asking for a review after their problem was fixed. |
 | **W8** | **Manual Lead Ingestion** | Webhook (`POST /add-customer`) | Inserts new service leads directly from the web dashboard into the `Track` sheet. |
+| **W9** | **Competitor Rating Benchmark** | Schedule (Weekly Mondays 8 AM) & Webhook (`/sync-competitors`) | Scrapes aggregate star rating & review count for client and 2-3 competitors (zero review text for near-zero compute), calculates weekly growth, and updates `Competitors` sheet. |
 
 ---
 
@@ -102,6 +103,16 @@ flowchart TD
 * `event`: `email_sent`, `reply_received`, `issue_flagged`, `review_captured`, `gbp_sync`.
 * `detail`: Human-readable description.
 * `ts`: ISO timestamp.
+
+### Tab 5: `Competitors` (Competitor Intelligence Benchmark)
+* `id`: Unique identifier (e.g. `comp-1`).
+* `business_name`: Competitor or client name (e.g. *Apex Climate Solutions*).
+* `is_client`: `TRUE` if client's own business, `FALSE` if competitor.
+* `rating`: Overall Google Maps star rating (e.g. `4.9`).
+* `review_count`: Total public Google reviews count (e.g. `68`).
+* `weekly_growth`: Estimated review growth velocity per month.
+* `captured_at`: Timestamp of latest benchmark scrape.
+* `maps_url`: Direct Google Maps search / profile URL.
 
 ---
 

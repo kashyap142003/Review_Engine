@@ -36,7 +36,7 @@ async function n8nRequest(path, options = {}) {
   return res.json().catch(() => ({}));
 }
 
-// Fetch all four sheets in one call - n8n aggregates them
+// Fetch all sheets in one call - n8n aggregates them
 export async function n8nFetchOverview() {
   const data = await n8nRequest('/data');
   return {
@@ -44,6 +44,7 @@ export async function n8nFetchOverview() {
     issues: { rows: data.issues ?? [] },
     reviews: { rows: data.reviews ?? [] },
     activity: { rows: data.activity ?? [] },
+    competitors: { rows: data.competitors ?? [] },
   };
 }
 

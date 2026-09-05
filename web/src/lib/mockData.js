@@ -208,8 +208,51 @@ const activity = [
   { id: 'a9', ts: daysAgo(11, 9), event: 'email_sent', track_id: 'a1b2c3d4-0001', detail: 'Follow-up + review invite sent to Aarav Mehta (email)' },
 ];
 
+const competitors = [
+  {
+    id: 'comp-1',
+    business_name: 'Main Showroom',
+    is_client: 'TRUE',
+    rating: 4.9,
+    review_count: 68,
+    weekly_growth: 6,
+    captured_at: daysAgo(0),
+    maps_url: 'https://maps.google.com/?q=Main+Showroom',
+  },
+  {
+    id: 'comp-2',
+    business_name: 'Apex Climate Solutions',
+    is_client: 'FALSE',
+    rating: 4.7,
+    review_count: 82,
+    weekly_growth: 2,
+    captured_at: daysAgo(0),
+    maps_url: 'https://maps.google.com/?q=Apex+Climate+Solutions',
+  },
+  {
+    id: 'comp-3',
+    business_name: 'Metro Heating & Air',
+    is_client: 'FALSE',
+    rating: 4.5,
+    review_count: 54,
+    weekly_growth: 1,
+    captured_at: daysAgo(0),
+    maps_url: 'https://maps.google.com/?q=Metro+Heating+Air',
+  },
+  {
+    id: 'comp-4',
+    business_name: 'Reliable Home Pros',
+    is_client: 'FALSE',
+    rating: 4.3,
+    review_count: 41,
+    weekly_growth: 1,
+    captured_at: daysAgo(0),
+    maps_url: 'https://maps.google.com/?q=Reliable+Home+Pros',
+  },
+];
+
 // Mutable store so demo actions (resolve issue, etc.) work live.
-const store = { track, issues, reviews, activity };
+const store = { track, issues, reviews, activity, competitors };
 
 export function getMockSheet(sheet) {
   const rows = store[sheet] ?? [];

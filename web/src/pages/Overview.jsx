@@ -32,6 +32,7 @@ import { useSheetData } from '../lib/useSheetData';
 import StatCard from '../components/StatCard';
 import ChartCard from '../components/ChartCard';
 import GlassCard from '../components/GlassCard';
+import CompetitorBenchmark from '../components/CompetitorBenchmark';
 import Page from '../components/Page';
 import PageSkeleton, { ErrorBanner } from '../components/States';
 import AnimatedNumber from '../components/AnimatedNumber';
@@ -150,6 +151,7 @@ export default function Overview() {
   const issueState = useSheetData('issues');
   const reviewState = useSheetData('reviews');
   const activityState = useSheetData('activity');
+  const competitorState = useSheetData('competitors');
 
   const loading = trackState.loading || reviewState.loading;
   const error = trackState.error || issueState.error || reviewState.error || activityState.error;
@@ -350,6 +352,15 @@ export default function Overview() {
           </ChartCard>
         </motion.div>
       </div>
+
+      {/* Competitor Benchmark & Local Intelligence */}
+      <motion.div variants={fadeIn} initial="hidden" animate="show">
+        <CompetitorBenchmark 
+          competitors={competitorState.rows} 
+          clientReviewsCount={metrics.newReviews}
+          clientRating={Number(metrics.avgRating)}
+        />
+      </motion.div>
 
       {/* Real-time Activity Feed */}
       <GlassCard hover={false} className="p-6 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)]">

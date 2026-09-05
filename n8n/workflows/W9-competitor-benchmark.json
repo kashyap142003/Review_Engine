@@ -1,0 +1,231 @@
+{
+  "name": "W9 - Competitor Rating Benchmark",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "w9-schedule",
+      "name": "Weekly Benchmark Schedule (Mondays 8AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [ 200, 260 ]
+    },
+    {
+      "parameters": {
+        "path": "sync-competitors",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "w9-webhook",
+      "name": "Manual Sync Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [ 200, 440 ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "__GOOGLE_SHEET_ID__",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Competitors",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "w9-read-competitors",
+      "name": "Read Competitors List",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 440, 350 ]
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google_maps"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.business_name }}"
+            },
+            {
+              "name": "api_key",
+              "value": "__SERPAPI_KEY__"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w9-fetch-maps-stats",
+      "name": "Fetch Rating & Count Only",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [ 680, 350 ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate weekly growth and clean metrics\nconst oldReviewCount = Number($node[\"Read Competitors List\"].json.review_count) || 0;\nconst newRating = Number($json.place_results?.rating || $json.rating || 5.0);\nconst newReviewCount = Number($json.place_results?.reviews || $json.reviews || oldReviewCount);\nconst weeklyGrowth = Math.max(0, newReviewCount - oldReviewCount);\n\nreturn {\n  id: $node[\"Read Competitors List\"].json.id,\n  business_name: $node[\"Read Competitors List\"].json.business_name,\n  is_client: $node[\"Read Competitors List\"].json.is_client,\n  rating: newRating,\n  review_count: newReviewCount,\n  weekly_growth: weeklyGrowth,\n  captured_at: new Date().toISOString(),\n  maps_url: $node[\"Read Competitors List\"].json.maps_url || ''\n};"
+      },
+      "id": "w9-format-metrics",
+      "name": "Format Benchmark Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [ 900, 350 ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "__GOOGLE_SHEET_ID__",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Competitors",
+          "mode": "name"
+        },
+        "columnToMatchOn": "id",
+        "valueToMatchOn": "={{ $json.id }}",
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "id", "value": "={{ $json.id }}" },
+            { "name": "business_name", "value": "={{ $json.business_name }}" },
+            { "name": "is_client", "value": "={{ $json.is_client }}" },
+            { "name": "rating", "value": "={{ $json.rating }}" },
+            { "name": "review_count", "value": "={{ $json.review_count }}" },
+            { "name": "weekly_growth", "value": "={{ $json.weekly_growth }}" },
+            { "name": "captured_at", "value": "={{ $json.captured_at }}" },
+            { "name": "maps_url", "value": "={{ $json.maps_url }}" }
+          ]
+        }
+      },
+      "id": "w9-update-sheet",
+      "name": "Update Competitors Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 1120, 350 ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "__GOOGLE_SHEET_ID__",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Activity",
+          "mode": "name"
+        },
+        "options": {},
+        "mappingMode": "defineBelow",
+        "valuesUI": {
+          "mappingParameters": [
+            { "name": "id", "value": "=act_{{ Date.now() }}" },
+            { "name": "ts", "value": "={{ new Date().toISOString() }}" },
+            { "name": "event", "value": "gbp_sync" },
+            { "name": "track_id", "value": "" },
+            { "name": "detail", "value": "=Competitor intelligence benchmark refreshed: {{ $json.business_name }} ({{ $json.rating }}★, {{ $json.review_count }} reviews)" }
+          ]
+        }
+      },
+      "id": "w9-log-activity",
+      "name": "Log to Activity Tab",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [ 1340, 350 ]
+    }
+  ],
+  "connections": {
+    "Weekly Benchmark Schedule (Mondays 8AM)": {
+      "main": [
+        [
+          {
+            "node": "Read Competitors List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Sync Webhook": {
+      "main": [
+        [
+          {
+            "node": "Read Competitors List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Competitors List": {
+      "main": [
+        [
+          {
+            "node": "Fetch Rating & Count Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Rating & Count Only": {
+      "main": [
+        [
+          {
+            "node": "Format Benchmark Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Benchmark Row": {
+      "main": [
+        [
+          {
+            "node": "Update Competitors Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Competitors Sheet": {
+      "main": [
+        [
+          {
+            "node": "Log to Activity Tab",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
