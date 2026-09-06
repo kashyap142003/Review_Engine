@@ -21,7 +21,7 @@ export default function StatCard({ label, value, change, icon: Icon, tone = 'acc
     <GlassCard 
       hover 
       className={clsx(
-        "group p-5 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] transition-all duration-200 hover:shadow-lg hover:border-[#10B981]/40", 
+        "group h-full flex flex-col justify-between p-5 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] transition-all duration-200 hover:shadow-lg hover:border-[#10B981]/40", 
         isWarning && "border-l-4 border-l-[#EF4444]"
       )}
     >

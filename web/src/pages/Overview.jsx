@@ -220,7 +220,7 @@ export default function Overview() {
         </motion.div>
 
         {/* Reply Rate Card */}
-        <motion.div variants={staggerItem}>
+        <motion.div variants={staggerItem} className="h-full">
           <StatCard 
             label="Conversational Reply Rate" 
             value={metrics.replyRate} 
@@ -233,7 +233,7 @@ export default function Overview() {
         </motion.div>
 
         {/* Private Issues Resolved Card */}
-        <motion.div variants={staggerItem}>
+        <motion.div variants={staggerItem} className="h-full">
           <StatCard 
             label="Private Issues Caught" 
             value={metrics.openIssues} 
@@ -246,7 +246,7 @@ export default function Overview() {
         </motion.div>
 
         {/* Review Conversion Card */}
-        <motion.div variants={staggerItem}>
+        <motion.div variants={staggerItem} className="h-full">
           <StatCard 
             label="Review Conversion" 
             value={metrics.reviewConversion} 
