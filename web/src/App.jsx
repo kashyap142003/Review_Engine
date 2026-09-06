@@ -155,8 +155,8 @@ function Shell() {
           }
         />
 
-        <main className="flex-1 p-4 tablet:p-8 max-w-[1600px] w-full mx-auto">
-          <div className="mx-auto flex max-w-full flex-col gap-6">
+        <main className="flex-1 p-4 tablet:p-6 desktop:p-8 max-w-[1600px] w-full mx-auto">
+          <div className="mx-auto flex max-w-full flex-col">
             <AnimatePresence mode="wait">
               <Routes location={location} key={location.pathname}>
                 <Route path="/" element={<Overview />} />

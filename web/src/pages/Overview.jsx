@@ -260,7 +260,7 @@ export default function Overview() {
       </motion.section>
 
       {/* Main Charts Grid */}
-      <div className="grid grid-cols-1 gap-6 desktop:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 tablet:gap-5 desktop:grid-cols-3">
         {/* Growth Chart */}
         <motion.div variants={fadeIn} initial="hidden" animate="show" className="desktop:col-span-2">
           <ChartCard 

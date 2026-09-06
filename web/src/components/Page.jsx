@@ -11,7 +11,7 @@ export default function Page({ children, className }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.32, ease: EASE }}
-      className={clsx('flex flex-col gap-6', className)}
+      className={clsx('flex flex-col gap-4 tablet:gap-5', className)}
     >
       {children}
     </motion.div>
